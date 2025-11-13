@@ -81,43 +81,126 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   Future<void> _signIn() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // バリデーション
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter both email and password')),
+      );
+      return;
+    }
+
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid email address')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
-      await supabase.auth.signInWithPassword(
-        email: _emailController.text,
-        password: _passwordController.text,
+      final response = await supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
       );
+
+      if (response.user != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login successful!')),
+          );
+        }
+      }
     } catch (e) {
       if (mounted) {
+        String errorMessage = 'Login failed';
+        if (e.toString().contains('Invalid login credentials')) {
+          errorMessage = 'Invalid email or password';
+        } else if (e.toString().contains('Email not confirmed')) {
+          errorMessage = 'Please check your email and confirm your account';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: $e')),
+          SnackBar(content: Text(errorMessage)),
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<void> _signUp() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    // バリデーション
+    if (email.isEmpty || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter both email and password')),
+      );
+      return;
+    }
+
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid email address')),
+      );
+      return;
+    }
+
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password must be at least 6 characters')),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
-      await supabase.auth.signUp(
-        email: _emailController.text,
-        password: _passwordController.text,
+      print('Attempting to sign up with email: $email'); // デバッグ用
+
+      final response = await supabase.auth.signUp(
+        email: email,
+        password: password,
       );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sign up successful! Please check your email.')),
-        );
+
+      print('Sign up response: ${response.user}'); // デバッグ用
+
+      if (response.user != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Sign up successful! You can now sign in.')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Sign up completed but user is null. Please try signing in.')),
+          );
+        }
       }
     } catch (e) {
+      print('Sign up error: $e'); // デバッグ用
       if (mounted) {
+        String errorMessage = 'Sign up failed';
+        if (e.toString().contains('User already registered')) {
+          errorMessage = 'This email is already registered. Try signing in instead.';
+        } else if (e.toString().contains('Password should be at least')) {
+          errorMessage = 'Password is too weak. Please choose a stronger password.';
+        } else if (e.toString().contains('Email not confirmed')) {
+          errorMessage = 'Please check your Supabase email confirmation settings.';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sign up failed: $e')),
+          SnackBar(content: Text('$errorMessage: ${e.toString()}')),
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
